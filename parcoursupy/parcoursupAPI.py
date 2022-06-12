@@ -14,7 +14,7 @@ parcoursup_url: str = "https://dossier.parcoursup.fr/Candidat/"
 parcoursup_mobile: str = "https://mobile.parcoursup.fr/NotificationsService/services/"
 JSON_HEADERS: dict = {"Content-Type": "application/json"}
 
-locale.setlocale(locale.LC_ALL, 'fr_FR')
+locale.setlocale(locale.LC_ALL, "fr_FR")
 
 
 class _Wish:
@@ -71,8 +71,10 @@ class Proposition(_Wish):
         self.accepted: bool
 
         if json_dict["dateLimiteReponse"]:
-            self.reply_deadline = datetime.strptime(re.sub(r" \([^\)]*\)", "", json_dict["dateLimiteReponse"]), "%d %B %H:%M").replace(
-                year=datetime.now().year, tzinfo=tz.gettz('Europe/Paris'))
+            self.reply_deadline = datetime.strptime(
+                re.sub(r" \([^\)]*\)", "", json_dict["dateLimiteReponse"]),
+                "%d %B %H:%M",
+            ).replace(year=datetime.now().year, tzinfo=tz.gettz("Europe/Paris"))
             self.accepted = False
         else:
             self.reply_deadline = None
@@ -119,7 +121,8 @@ class PendingWish(_Wish):
 
         if json_dict.get("autresInformations"):
             soup = BeautifulSoup(
-                json_dict["autresInformations"][0]["texte"], features="html.parser")
+                json_dict["autresInformations"][0]["texte"], features="html.parser"
+            )
             strongs = [s for s in soup.findAll("strong") if s.text.isnumeric()]
             if len(strongs) == 6:
                 self.waitlist_position = int(strongs[0].text)
@@ -197,23 +200,24 @@ class Parcoursup_Client:
 
         soup = BeautifulSoup(r.text, features="html.parser")
 
-        form = soup.find('form', attrs={"name": "accesdossier"})
+        form = soup.find("form", attrs={"name": "accesdossier"})
         if not form:
             return
 
-        data = {input_.get("name"): input_.get("value")
-                for input_ in form.findAll('input')}
+        data = {
+            input_.get("name"): input_.get("value") for input_ in form.findAll("input")
+        }
         data["usermobile"] = False
         data["g_cn_cod"] = self.username
         data["g_cn_mot_pas"] = self.password
 
-        parcoursup_url = r.url.replace('authentification', '')
+        parcoursup_url = r.url.replace("authentification", "")
 
         post_url = f"{parcoursup_url}{form.get('action')}"
         r = self.desktop_session.post(post_url, data=data)
 
         soup = BeautifulSoup(r.text, features="html.parser")
-        alert = soup.find('p', attrs={"role": "alert"})
+        alert = soup.find("p", attrs={"role": "alert"})
 
         if alert:
             raise Exception(alert.text)
@@ -238,7 +242,7 @@ class Parcoursup_Client:
             return dossier.text
 
         if not path:
-            path = fr"{datetime.now().isoformat()}.html".replace(":", "-")
+            path = rf"{datetime.now().isoformat()}.html".replace(":", "-")
 
         with open(path, "w", encoding="utf-8") as f:
             f.write(dossier.text)
@@ -250,32 +254,42 @@ class Parcoursup_Client:
             "plateforme": "android",
             "plateformeVersion": "12",
             "session": datetime.now().year,
-            "token": "".join(random.choices(list(string.ascii_letters + string.digits + string.punctuation), k=128))
+            "token": "".join(
+                random.choices(
+                    list(string.ascii_letters + string.digits + string.punctuation),
+                    k=128,
+                )
+            ),
         }
 
-        token = self.mobile_session.post(f"{parcoursup_mobile}token",
-                                         data=json.dumps(data), headers=JSON_HEADERS)
+        token = self.mobile_session.post(
+            f"{parcoursup_mobile}token", data=json.dumps(data), headers=JSON_HEADERS
+        )
         if not token:
             raise Exception(f"{token.status_code} {token.reason}")
 
         data = {
             "code": self.password,
             "login": self.username,
-            "tokenId": token.json()["tokenId"]
+            "tokenId": token.json()["tokenId"],
         }
-        login = self.mobile_session.post(f"{parcoursup_mobile}login",
-                                         data=json.dumps(data), headers=JSON_HEADERS)
+        login = self.mobile_session.post(
+            f"{parcoursup_mobile}login", data=json.dumps(data), headers=JSON_HEADERS
+        )
 
         if not login:
             raise Exception(f"{login.status_code} {login.reason}")
         elif login.json()["codeRetour"] == 1:
             raise Exception(login.json()["messageRetour"].replace("<br>", "\n"))
 
-        self.mobile_session.headers.update({"X-Auth-Token": login.headers["X-Auth-Token"],
-                                            "Authorization": login.headers["Authorization"],
-                                            "X-Token-Id": str(token.json()["tokenId"]),
-                                            "X-Auth-Login": login.headers["X-Auth-Login"]
-                                            })
+        self.mobile_session.headers.update(
+            {
+                "X-Auth-Token": login.headers["X-Auth-Token"],
+                "Authorization": login.headers["Authorization"],
+                "X-Token-Id": str(token.json()["tokenId"]),
+                "X-Auth-Login": login.headers["X-Auth-Login"],
+            }
+        )
 
     def get_wishes(self) -> list[_Wish]:
         """Retourne les voeux"""
@@ -303,13 +317,15 @@ class Parcoursup_Client:
 
     @classmethod
     @no_type_check
-    def __try_onload(cls, s: requests.Session, r: requests.Response) -> requests.Response:
+    def __try_onload(
+        cls, s: requests.Session, r: requests.Response
+    ) -> requests.Response:
         soup = BeautifulSoup(r.text, features="html.parser")
-        onload = soup.find('body').get("onload")
+        onload = soup.find("body").get("onload")
         if not onload:
             return r
         match = re.search(r"window.location='(?P<url>[^']*)'", onload)
-        url = match.group('url')
+        url = match.group("url")
         return cls.__try_onload(s, s.get(url))
 
     @classmethod
@@ -318,4 +334,4 @@ class Parcoursup_Client:
         r = requests.get(f"{parcoursup_url}authentification")
         r = cls.__try_onload(requests, r)
         soup = BeautifulSoup(r.text, features="html.parser")
-        return bool(soup.find('form', attrs={"name": "accesdossier"}))
+        return bool(soup.find("form", attrs={"name": "accesdossier"}))

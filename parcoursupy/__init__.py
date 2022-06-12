@@ -8,4 +8,10 @@ __author__ = "Bapt5"
 __license__ = "MPL2.0"
 __version__ = "1.0.0"
 
-from .parcoursupAPI import Parcoursup_Client, _Wish, Proposition, PendingWish, RefusedWish
+from .parcoursupAPI import (
+    Parcoursup_Client,
+    _Wish,
+    Proposition,
+    PendingWish,
+    RefusedWish,
+)
