@@ -210,7 +210,13 @@ class Parcoursup_Client:
         parcoursup_url = r.url.replace('authentification', '')
 
         post_url = f"{parcoursup_url}{form.get('action')}"
-        self.desktop_session.post(post_url, data=data)
+        r = self.desktop_session.post(post_url, data=data)
+
+        soup = BeautifulSoup(r.text, features="html.parser")
+        alert = soup.find('p', attrs={"role": "alert"})
+
+        if alert:
+            raise Exception(alert.text)
 
     def get_html(self, to_file: bool = False, path: Optional[str] = None) -> str:
         """
@@ -259,13 +265,17 @@ class Parcoursup_Client:
         }
         login = self.mobile_session.post(f"{parcoursup_mobile}login",
                                          data=json.dumps(data), headers=JSON_HEADERS)
+
+        if not login:
+            raise Exception(f"{login.status_code} {login.reason}")
+        elif login.json()["codeRetour"] == 1:
+            raise Exception(login.json()["messageRetour"].replace("<br>", "\n"))
+
         self.mobile_session.headers.update({"X-Auth-Token": login.headers["X-Auth-Token"],
                                             "Authorization": login.headers["Authorization"],
                                             "X-Token-Id": str(token.json()["tokenId"]),
                                             "X-Auth-Login": login.headers["X-Auth-Login"]
                                             })
-        if not login:
-            raise Exception(f"{login.status_code} {login.reason}")
 
     def get_wishes(self) -> list[_Wish]:
         """Retourne les voeux"""
